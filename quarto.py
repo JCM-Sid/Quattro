@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import random
 import sys
 from typing import List, Optional, Sequence, Tuple
 
@@ -84,7 +85,55 @@ def parse_position(token: str) -> int:
     return value
 
 
-def play_game() -> None:
+def get_all_possible_moves(board: Board, available: List[Piece]) -> List[Tuple[Piece, int]]:
+    moves: List[Tuple[Piece, int]] = []
+    empty_positions = [i for i, cell in enumerate(board) if cell is None]
+    for piece in available:
+        for pos in empty_positions:
+            moves.append((piece, pos))
+    return moves
+
+
+def find_winning_move(board: Board, available: List[Piece]) -> Optional[Tuple[Piece, int]]:
+    empty_positions = [i for i, cell in enumerate(board) if cell is None]
+    for piece in available:
+        for pos in empty_positions:
+            new_board = apply_move(board, piece, pos)
+            if is_winning_board(new_board):
+                return (piece, pos)
+    return None
+
+
+def get_computer_move(board: Board, available: List[Piece], level: str) -> Tuple[Piece, int]:
+    moves = get_all_possible_moves(board, available)
+    if not moves:
+        raise ValueError("no moves available")
+
+    if level == "DEBUTANT":
+        return random.choice(moves)
+
+    winning = find_winning_move(board, available)
+    if winning is not None:
+        return winning
+
+    if level == "MOYEN":
+        return random.choice(moves)
+
+    # DIFFICILE
+    safe_moves: List[Tuple[Piece, int]] = []
+    for piece, pos in moves:
+        new_board = apply_move(board, piece, pos)
+        new_available = [p for p in available if p != piece]
+        if find_winning_move(new_board, new_available) is None:
+            safe_moves.append((piece, pos))
+
+    if safe_moves:
+        return random.choice(safe_moves)
+
+    return random.choice(moves)
+
+
+def play_game(mode: str, level: Optional[str] = None) -> None:
     pieces = make_piece_set()
     board: Board = [None] * 16
     available = list(pieces)
@@ -95,25 +144,42 @@ def play_game() -> None:
     print("Legend: 0=dark/round/small/empty, 1=light/square/large/filled")
 
     while True:
-        print(f"\nPlayer {current_player}'s turn")
+        is_computer = (mode == "seul" and current_player == 2)
+
+        if is_computer:
+            print(f"\nComputer ({level})'s turn")
+        else:
+            print(f"\nPlayer {current_player}'s turn")
+
         print(format_board(board))
         print("Available pieces:", len(available))
+
         try:
-            piece_token = input("Choose a piece (binary code): ").strip()
-            piece = parse_piece(piece_token)
-            if piece not in available:
-                raise ValueError("piece already used")
-            available.remove(piece)
-            pos_token = input(f"Place the {describe_piece(piece)} at position (0-15): ").strip()
-            position = parse_position(pos_token)
-            board = apply_move(board, piece, position)
+            if is_computer:
+                piece, position = get_computer_move(board, available, level or "DEBUTANT")
+                print(f"Computer chooses piece {''.join(str(b) for b in piece)}")
+                print(f"Computer places it at position {position}")
+                available.remove(piece)
+                board = apply_move(board, piece, position)
+            else:
+                piece_token = input("Choose a piece (binary code): ").strip()
+                piece = parse_piece(piece_token)
+                if piece not in available:
+                    raise ValueError("piece already used")
+                available.remove(piece)
+                pos_token = input(f"Place the {describe_piece(piece)} at position (0-15): ").strip()
+                position = parse_position(pos_token)
+                board = apply_move(board, piece, position)
         except ValueError as exc:
             print(f"Invalid input: {exc}")
             continue
 
         if is_winning_board(board):
             print(format_board(board))
-            print(f"Player {current_player} wins!")
+            if is_computer:
+                print("Computer wins!")
+            else:
+                print(f"Player {current_player} wins!")
             return
 
         if not available:
@@ -125,6 +191,8 @@ def play_game() -> None:
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Play a local Quarto game")
+    parser.add_argument("mode", choices=["2", "seul"], help="game mode: '2' for two players, 'seul' for solo against computer")
+    parser.add_argument("level", nargs="?", choices=["DEBUTANT", "MOYEN", "DIFFICILE"], help="computer level (required for 'seul' mode)")
     parser.add_argument("--demo", action="store_true", help="print a short demo and exit")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
@@ -134,7 +202,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         print("The first player to complete a line with shared attributes wins.")
         return 0
 
-    play_game()
+    if args.mode == "seul" and args.level is None:
+        parser.error("the 'level' argument is required when mode is 'seul'")
+
+    play_game(args.mode, args.level)
     return 0
 
 
