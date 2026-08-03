@@ -1,0 +1,16 @@
+# Kimi Code local configuration
+# Generated from playbook.yaml — DO NOT EDIT MANUALLY
+
+[project]
+name = "Quattro"
+
+[playbook]
+mode = "prototyping"
+status = "starting"
+packs = ["local-first", "git-workflow", "git-workflow-automation"]
+disable_rules = []
+deferred_rules = []
+
+format_command = ""
+lint_command = ""
+check_command = "python -m unittest discover -s tests -v"
