@@ -15,14 +15,14 @@
 | `run_quattro.sh` | Launcher entry-point (`python3 quarto.py`) |
 | `tests/test_quarto.py` | Unit tests for core game logic (piece set, win detection, move application) |
 | `playbook.yaml` | ai-coding-playbook local config |
-| `scripts/generate_rules.py` | Derived-rule generator (Cursor / Claude / Kimi) |
+| `./ai-coding-playbook/scripts/generate_rules.py` | Derived-rule generator (Cursor / Claude / Kimi) |
 
 ## CLI
 
 ```bash
 # Run the game (two players or solo)
 ./run_quattro.sh
-python3 quattro.py
+python3 quarto.py
 
 # Run tests
 python3 -m unittest -q
@@ -37,13 +37,9 @@ python3 scripts/generate_rules.py --tool all --clean
 - 4×4 board (positions 0–15).
 - 16 unique pieces, each defined by 4 binary attributes: `(color, shape, size, fill)`.
 - A line of four sharing **at least one** attribute wins.
-- In `quattro.py` solo mode, the computer picks a piece **and** a position for the player, then places it.
+- In `quarto.py` solo mode, the computer picks a piece **and** a position for the player, then places it.
 
 ## Architecture notes
-
-- Core logic (`make_piece_set`, `is_winning_board`, `apply_move`) is duplicated between `quarto.py` and `quattro.py`.  
-  **Do not refactor into a shared module without explicit user consent** — this is a prototype and the duplication is deliberate for now.
-- `quarto.py` is the simpler reference; `quattro.py` is the active variant with AI.
 - No external dependencies → no `requirements.txt`, `pyproject.toml`, or lockfile.
 
 ## Conventions
