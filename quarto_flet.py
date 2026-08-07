@@ -16,12 +16,18 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import urllib.parse
+import uuid
 from typing import Dict, List, Optional
 
 import flet as ft
 from flet import PageResizeEvent, run
 
 from quarto import get_computer_move, is_winning_board, make_piece_set, Piece
+
+# ── État global pour les parties multijoueur ─────────────────────────────────
+GAMES: Dict[str, dict] = {}
+_SERVER_INFO = {"host": "127.0.0.1", "port": 8080}
 
 # ── Couleurs ─────────────────────────────────────────────────────────────────
 _COLOR_DARK = "#654321"
@@ -30,7 +36,7 @@ _COLOR_CELL_BG = "#F5F9F5"
 _COLOR_CELL_BORDER = "#8B4513"
 _COLOR_HIGHLIGHT_BG = "#8C8C2D"
 _COLOR_HIGHLIGHT_BORDER = "#228B22"
-_COLOR_PAGE_BG = "#F5E4A2"
+_COLOR_PAGE_BG = "#FFFDF4"
 
 
 
@@ -59,7 +65,12 @@ class QuartoApp:
         self.computer_level: Optional[str] = "DEBUTANT"
         self.current_user: Optional[str] = None
         self.player2_user: Optional[str] = None
-        self.users: Dict[str, str] = self._load_users()
+        self.users: Dict[str, dict] = self._load_users()
+
+        # Remote game state
+        self.game_id: Optional[str] = None
+        self.player_role: Optional[int] = None
+        self._game_id_from_url = self._extract_game_id()
 
         # Tailles dynamiques
         self.cell_size = 90
@@ -70,6 +81,7 @@ class QuartoApp:
         self.pool_cols = 4
 
         self.page.on_resize = self._on_resize
+        self.page.pubsub.subscribe(self._on_pubsub_message)
         self._show_login_screen()
 
     # ── Redimensionnement ──────────────────────────────────────────────────
@@ -255,7 +267,10 @@ class QuartoApp:
         user = self.users.get(username)
         if user and user.get("password") == password:
             self.current_user = username
-            self._show_start_screen()
+            if self._game_id_from_url:
+                self._try_join_remote_game(self._game_id_from_url)
+            else:
+                self._show_start_screen()
         else:
             self.login_error.value = "Nom d'utilisateur ou mot de passe incorrect."
             self.page.update()
@@ -263,6 +278,8 @@ class QuartoApp:
     def _logout(self) -> None:
         self.current_user = None
         self.player2_user = None
+        self.game_id = None
+        self.player_role = None
         self._show_login_screen()
 
     def _show_player2_login(self) -> None:
@@ -345,6 +362,8 @@ class QuartoApp:
 
     def _show_start_screen(self) -> None:
         self.player2_user = None
+        self.game_id = None
+        self.player_role = None
         self._clear()
         self.page.add(
             ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
@@ -369,6 +388,14 @@ class QuartoApp:
                 "2 Joueurs",
                 on_click=lambda _: self._show_player2_login(),
                 bgcolor=_COLOR_CELL_BORDER,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
+            ft.Button(
+                "Connexion avec partenaire distant",
+                on_click=lambda _: self._create_remote_game(),
+                bgcolor="#2196F3",
                 color="white",
                 width=250,
             ),
@@ -575,6 +602,12 @@ class QuartoApp:
 
     def _player_label(self, player: int) -> str:
         """Retourne le nom d'affichage du joueur."""
+        if self.mode == "remote" and self.game_id and self.game_id in GAMES:
+            game = GAMES[self.game_id]
+            if player == 1:
+                return game["player1"]
+            if player == 2:
+                return game["player2"]
         if player == 1:
             return self.current_user
         if player == 2 and self.player2_user:
@@ -611,7 +644,220 @@ class QuartoApp:
                     f"choisie par {p(other)}"
                 )
 
+    # ── Partie à distance ──────────────────────────────────────────────────
+
+    def _extract_game_id(self) -> Optional[str]:
+        """Extrait l'identifiant de partie depuis l'URL."""
+        try:
+            query = getattr(self.page, "query", None)
+            if query:
+                return query.get("game")
+        except Exception:
+            pass
+        route = getattr(self.page, "route", "") or ""
+        if "?" in route:
+            qs = route.split("?", 1)[1]
+            params = urllib.parse.parse_qs(qs)
+            ids = params.get("game", [])
+            if ids:
+                return ids[0]
+        try:
+            url = getattr(self.page, "url", "") or ""
+            if "?" in url:
+                parsed = urllib.parse.urlparse(url)
+                params = urllib.parse.parse_qs(parsed.query)
+                ids = params.get("game", [])
+                if ids:
+                    return ids[0]
+        except Exception:
+            pass
+        return None
+
+    def _create_remote_game(self) -> None:
+        """Crée une nouvelle partie distante et affiche le lien à partager."""
+        game_id = str(uuid.uuid4())[:8]
+        self.game_id = game_id
+        self.player_role = 1
+
+        GAMES[game_id] = {
+            "player1": self.current_user,
+            "player2": None,
+            "board": [None] * 16,
+            "available": make_piece_set(),
+            "current_player": 1,
+            "piece_to_place": None,
+            "game_over": False,
+        }
+
+        self._show_waiting_screen(game_id)
+
+    def _show_waiting_screen(self, game_id: str) -> None:
+        """Affiche l'écran d'attente avec l'URL à partager."""
+        self._clear()
+        host = (
+            "127.0.0.1"
+            if _SERVER_INFO["host"] in ("0.0.0.0", "127.0.0.1")
+            else _SERVER_INFO["host"]
+        )
+        url = f"http://{host}:{_SERVER_INFO['port']}/?game={game_id}"
+
+        self.page.add(
+            ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
+            ft.Text("Partie créée !", size=24, color=_COLOR_CELL_BORDER),
+            ft.Container(height=10),
+            ft.Text("En attente du joueur 2...", size=18, color=_COLOR_CELL_BORDER),
+            ft.Container(height=20),
+            ft.Text(
+                "Partagez ce lien avec votre partenaire :",
+                size=14,
+                color=_COLOR_CELL_BORDER,
+            ),
+            ft.Container(height=5),
+            ft.Text(
+                url,
+                size=14,
+                color=_COLOR_DARK,
+                weight=ft.FontWeight.BOLD,
+                selectable=True,
+            ),
+            ft.Container(height=20),
+            ft.Button(
+                "Annuler",
+                on_click=lambda _: self._show_start_screen(),
+                bgcolor="#8B4513",
+                color="white",
+                width=250,
+            ),
+        )
+
+    def _try_join_remote_game(self, game_id: str) -> None:
+        """Tente de rejoindre une partie existante en tant que joueur 2."""
+        if game_id not in GAMES:
+            self._show_login_error("Partie introuvable.")
+            return
+
+        game = GAMES[game_id]
+        if game.get("player2"):
+            self._show_login_error("Cette partie est déjà complète.")
+            return
+        if game["player1"] == self.current_user:
+            self._show_login_error(
+                "Vous ne pouvez pas jouer contre vous-même."
+            )
+            return
+
+        self.game_id = game_id
+        self.player_role = 2
+        game["player2"] = self.current_user
+
+        # Notifie le joueur 1 que le joueur 2 a rejoint
+        self.page.pubsub.send_all(
+            {"game_id": game_id, "action": "player_joined"}
+        )
+
+        self._start_remote_game()
+
+    def _show_login_error(self, message: str) -> None:
+        """Affiche un message d'erreur sur l'écran de login."""
+        self.login_error.value = message
+        self.page.update()
+
+    def _start_remote_game(self) -> None:
+        """Démarre l'interface de jeu pour une partie distante."""
+        self._start_game("remote", None)
+        self._sync_remote_state()
+
+    def _sync_remote_state(self) -> None:
+        """Synchronise l'état local depuis le state global GAMES."""
+        if not self.game_id or self.game_id not in GAMES:
+            return
+        game = GAMES[self.game_id]
+        self.board = game["board"]
+        self.available = game["available"]
+        self.current_player = game["current_player"]
+        self.piece_to_place = game["piece_to_place"]
+        self.game_over = game["game_over"]
+        self._update_status()
+        self._refresh()
+
+    def _publish_remote_update(self, action: str = "update") -> None:
+        """Publie un message pubsub pour synchroniser les joueurs distants."""
+        if self.game_id:
+            self.page.pubsub.send_all(
+                {"game_id": self.game_id, "action": action}
+            )
+
+    def _on_pubsub_message(self, message) -> None:
+        """Gère les messages pubsub entrants."""
+        if not isinstance(message, dict):
+            return
+        if message.get("game_id") != self.game_id:
+            return
+
+        action = message.get("action")
+        if action == "player_joined" and self.player_role == 1:
+            self._start_remote_game()
+        elif action in ("update", "reset"):
+            self._sync_remote_state()
+
+    def _on_piece_click_remote(self, piece: Piece) -> None:
+        """Gère le choix d'une pièce en mode distant."""
+        if self.game_over or self.piece_to_place is not None:
+            return
+        if self.current_player != self.player_role:
+            return
+        if piece not in self.available:
+            return
+
+        game = GAMES[self.game_id]
+        game["piece_to_place"] = piece
+        game["available"].remove(piece)
+        game["current_player"] = 3 - game["current_player"]
+
+        self._publish_remote_update()
+        self._sync_remote_state()
+
+    def _on_cell_click_remote(self, idx: int) -> None:
+        """Gère le placement d'une pièce en mode distant."""
+        if self.game_over or self.piece_to_place is None:
+            return
+        if self.current_player != self.player_role:
+            return
+        if self.board[idx] is not None:
+            return
+
+        game = GAMES[self.game_id]
+        game["board"][idx] = game["piece_to_place"]
+        game["piece_to_place"] = None
+
+        if is_winning_board(game["board"]):
+            game["game_over"] = True
+            winner_name = (
+                game["player1"] if game["current_player"] == 1 else game["player2"]
+            )
+            loser_name = (
+                game["player2"] if game["current_player"] == 1 else game["player1"]
+            )
+            self._record_game_result(winner_name, loser_name)
+            self._publish_remote_update()
+            self._sync_remote_state()
+            self._show_end_game_stats()
+            return
+
+        if not game["available"]:
+            game["game_over"] = True
+            self._publish_remote_update()
+            self._sync_remote_state()
+            self._show_end_game_stats()
+            return
+
+        self._publish_remote_update()
+        self._sync_remote_state()
+
     def _on_piece_click(self, piece: Piece) -> None:
+        if self.mode == "remote":
+            self._on_piece_click_remote(piece)
+            return
         if self.game_over or self.piece_to_place is not None:
             return
         if piece not in self.available:
@@ -629,6 +875,9 @@ class QuartoApp:
             self._play_computer_turn()
 
     def _on_cell_click(self, idx: int) -> None:
+        if self.mode == "remote":
+            self._on_cell_click_remote(idx)
+            return
         if self.game_over or self.piece_to_place is None:
             return
         if self.board[idx] is not None:
@@ -715,6 +964,18 @@ class QuartoApp:
         self._refresh()
 
     def _reset(self) -> None:
+        if self.mode == "remote" and self.game_id and self.game_id in GAMES:
+            game = GAMES[self.game_id]
+            game["board"] = [None] * 16
+            game["available"] = make_piece_set()
+            game["current_player"] = 1
+            game["piece_to_place"] = None
+            game["game_over"] = False
+            self.page.pubsub.send_all(
+                {"game_id": self.game_id, "action": "reset"}
+            )
+            self._sync_remote_state()
+            return
         self.board = [None] * 16
         self.available = make_piece_set()
         self.current_player = 1
@@ -747,6 +1008,8 @@ if __name__ == "__main__":
         help="Hôte sur lequel écouter (défaut: 127.0.0.1 pour local, utiliser 0.0.0.0 pour PM2/Production)",
     )
     args = parser.parse_args()
+    _SERVER_INFO["host"] = args.host
+    _SERVER_INFO["port"] = args.port
     ft.run(
         main=main,
         port=args.port,
