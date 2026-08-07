@@ -3,5 +3,5 @@ __pycache__/quarto.cpython-314.pyc
 scripts/kimi-bootstrap.py
 scripts/kimi-simple.py
 scripts/setup-kimi.sh
-.kimi/agents/project-overlay.md
 ai-coding-playbook
+.cursor/
