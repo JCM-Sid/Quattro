@@ -24,6 +24,5 @@ starlette
 typing-extensions
 typing-inspection
 uvicorn
-uvloop
 watchfiles
 websockets

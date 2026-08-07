@@ -17,13 +17,14 @@ import argparse
 from typing import List, Optional
 
 import flet as ft
+from flet import PageResizeEvent, run
 
 from quarto import get_computer_move, is_winning_board, make_piece_set, Piece
 
 # ── Couleurs ─────────────────────────────────────────────────────────────────
 _COLOR_DARK = "#654321"
 _COLOR_LIGHT = "#DEB887"
-_COLOR_CELL_BG = "#F5DEB3"
+_COLOR_CELL_BG = "#DEF056"
 _COLOR_CELL_BORDER = "#8B4513"
 _COLOR_HIGHLIGHT_BG = "#90EE90"
 _COLOR_HIGHLIGHT_BORDER = "#228B22"
@@ -52,7 +53,7 @@ class QuartoApp:
         self.page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
 
         self.mode: Optional[str] = None
-        self.computer_level: Optional[str] = None
+        self.computer_level: Optional[str] = "DEBUTANT"
 
         # Tailles dynamiques
         self.cell_size = 90
@@ -99,7 +100,7 @@ class QuartoApp:
         self.board_piece_size = int(self.cell_size * 0.65)
         self.pool_piece_size = int(self.pool_cell_size * 0.65)
 
-    def _on_resize(self, e: ft.ControlEvent) -> None:
+    def _on_resize(self, e: ft.PageResizeEvent) -> None:
         self._update_sizes()
         self._refresh()
 
@@ -159,7 +160,7 @@ class QuartoApp:
             ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
             ft.Text("Choisissez votre mode de jeu", size=18, color=_COLOR_CELL_BORDER),
             ft.Container(height=20),
-            ft.ElevatedButton(
+            ft.Button(
                 "Solo vs Ordinateur",
                 on_click=lambda _: self._choose_level(),
                 bgcolor=_COLOR_CELL_BORDER,
@@ -167,7 +168,7 @@ class QuartoApp:
                 width=250,
             ),
             ft.Container(height=10),
-            ft.ElevatedButton(
+            ft.Button(
                 "2 Joueurs",
                 on_click=lambda _: self._start_game("2players", None),
                 bgcolor=_COLOR_CELL_BORDER,
@@ -186,7 +187,7 @@ class QuartoApp:
                 color=_COLOR_CELL_BORDER,
             ),
             ft.Container(height=20),
-            ft.ElevatedButton(
+            ft.Button(
                 "DEBUTANT",
                 on_click=lambda _: self._start_game("solo", "DEBUTANT"),
                 bgcolor="#4CAF50",
@@ -194,7 +195,7 @@ class QuartoApp:
                 width=250,
             ),
             ft.Container(height=10),
-            ft.ElevatedButton(
+            ft.Button(
                 "MOYEN",
                 on_click=lambda _: self._start_game("solo", "MOYEN"),
                 bgcolor="#FF9800",
@@ -202,7 +203,7 @@ class QuartoApp:
                 width=250,
             ),
             ft.Container(height=10),
-            ft.ElevatedButton(
+            ft.Button(
                 "EXPERT - CHLOE",
                 on_click=lambda _: self._start_game("solo", "DIFFICILE"),
                 bgcolor="#F44336",
@@ -210,7 +211,7 @@ class QuartoApp:
                 width=250,
             ),
             ft.Container(height=10),
-            ft.ElevatedButton(
+            ft.Button(
                 "Retour",
                 on_click=lambda _: self._show_start_screen(),
                 bgcolor=_COLOR_CELL_BORDER,
@@ -268,13 +269,13 @@ class QuartoApp:
             color=_COLOR_DARK,
         )
         self.pool_column = ft.Column(spacing=8)
-        self.restart_button = ft.ElevatedButton(
+        self.restart_button = ft.Button(
             "🔄 Recommencer",
             on_click=lambda _: self._reset(),
             bgcolor=_COLOR_CELL_BORDER,
             color="white",
         )
-        self.menu_button = ft.ElevatedButton(
+        self.menu_button = ft.Button(
             "🏠 Menu principal",
             on_click=lambda _: self._show_start_screen(),
             bgcolor=_COLOR_CELL_BORDER,
@@ -399,10 +400,12 @@ class QuartoApp:
         self.piece_to_place = piece
         self.available.remove(piece)
         self.current_player = 3 - self.current_player
+        self.status_text.value = "Réflexion en cours ..."
         self._update_status()
         self._refresh()
 
         if self.mode == "solo" and self.current_player == 2:
+            self.status_text.value = "Réflexion en cours ..."
             self._play_computer_turn()
 
     def _on_cell_click(self, idx: int) -> None:
@@ -436,46 +439,16 @@ class QuartoApp:
 
     def _play_computer_turn(self) -> None:
         """Tour de l'ordinateur (placement + choix automatiques)."""
-        if self.game_over:
+        if self.game_over or self.piece_to_place is None:
             return
 
-        # Phase 1 : placer la pièce choisie par le joueur
-        if self.piece_to_place is not None:
-            try:
-                _, pos = get_computer_move(
-                    self.board, [self.piece_to_place], self.computer_level
-                )
-            except ValueError:
-                self.game_over = True
-                self.status_text.value = "🤝 Match nul !"
-                self._refresh()
-                return
-
-            if self.board[pos] is not None:
-                self.game_over = True
-                self.status_text.value = "Erreur interne — partie annulée"
-                self._refresh()
-                return
-
-            self.board[pos] = self.piece_to_place
-            self.piece_to_place = None
-
-            if is_winning_board(self.board):
-                self.game_over = True
-                self.status_text.value = "🎉 L'ordinateur a gagné !"
-                self._refresh()
-                return
-
-            if not self.available:
-                self.game_over = True
-                self.status_text.value = "🤝 Match nul !"
-                self._refresh()
-                return
-
-        # Phase 2 : choisir une pièce pour le joueur
+        # L'ordinateur joue : il place la pièce reçue ET choisit la pièce suivante pour le joueur
         try:
-            piece, _ = get_computer_move(
-                self.board, self.available, self.computer_level
+            pos, next_piece = get_computer_move(
+                self.board, 
+                self.piece_to_place, 
+                self.available, 
+                self.computer_level
             )
         except ValueError:
             self.game_over = True
@@ -483,14 +456,27 @@ class QuartoApp:
             self._refresh()
             return
 
-        if piece not in self.available:
+        # 1. Placement de la pièce reçue par l'ordinateur
+        self.board[pos] = self.piece_to_place
+        self.piece_to_place = None
+
+        if is_winning_board(self.board):
             self.game_over = True
-            self.status_text.value = "Erreur interne — partie annulée"
+            self.status_text.value = "🎉 L'ordinateur a gagné !"
             self._refresh()
             return
 
-        self.piece_to_place = piece
-        self.available.remove(piece)
+        if not self.available:
+            self.game_over = True
+            self.status_text.value = "🤝 Match nul !"
+            self._refresh()
+            return
+
+        # 2. Assignation de la pièce choisie par l'ordinateur pour le Joueur 1
+        if next_piece in self.available:
+            self.piece_to_place = next_piece
+            self.available.remove(next_piece)
+
         self.current_player = 1
         self.status_text.value = (
             "Joueur 1 : placez la pièce choisie par l'ordinateur"
@@ -522,6 +508,16 @@ if __name__ == "__main__":
         default=8080,
         help="Port du serveur web (défaut: 8080)",
     )
+    parser.add_argument(
+        "--host",
+        type=str,
+        default="127.0.0.1",
+        help="Hôte sur lequel écouter (défaut: 127.0.0.1 pour local, utiliser 0.0.0.0 pour PM2/Production)",
+    )
     args = parser.parse_args()
-
-    ft.run(main, port=args.port, view=None)
+    ft.run(
+        main=main,
+        port=args.port,
+        host=args.host,
+        view=ft.AppView.WEB_BROWSER  # Force Flet à ouvrir/servir le site web
+    )

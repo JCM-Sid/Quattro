@@ -104,77 +104,115 @@ def find_winning_move(board: Board, available: List[Piece]) -> Optional[Tuple[Pi
     return None
 
 
-def get_computer_move(board: Board, available: List[Piece], level: str) -> Tuple[Piece, int]:
-    moves = get_all_possible_moves(board, available)
-    if not moves:
+def get_computer_move(
+    board: Board, 
+    piece_to_place: Piece, 
+    available: List[Piece], 
+    level: str
+) -> Tuple[int, Optional[Piece]]:
+    """
+    Retourne un tuple (position_où_placer_la_pièce, pièce_à_donner_à_l_adversaire).
+    """
+    empty_positions = [i for i, p in enumerate(board) if p is None]
+    if not empty_positions:
         raise ValueError("no moves available")
 
-    # 1. Victoire immédiate (tous niveaux hors débutant)
-    if level != "DEBUTANT":
-        winning = find_winning_move(board, available)
-        if winning is not None:
-            return winning
+    # Si le plateau est totalement vide (premier coup de la partie)
+    if all(p is None for p in board):
+        chosen_pos = random.choice(empty_positions)
+        chosen_next = random.choice(available) if available else None
+        return chosen_pos, chosen_next
 
-    if level == "DEBUTANT" :
-        return random.choice(moves)
+    # 1. Gagnant en 1 placement (Placement en cours)
+    for pos in empty_positions:
+        test_board = apply_move(board, piece_to_place, pos)
+        if is_winning_board(test_board):
+            # On gagne direct : peu importe la pièce donnée après
+            next_p = random.choice(available) if available else None
+            return pos, next_p
 
-    # 2. Niveau MOYEN (1 tour de profondeur)
+    if level == "DEBUTANT":
+        pos = random.choice(empty_positions)
+        next_p = random.choice(available) if available else None
+        return pos, next_p
+
+    # S'il ne reste plus de pièces à distribuer (16e placement)
+    if not available:
+        return random.choice(empty_positions), None
+
+    # Génération de tous les coups complets possibles de l'IA (Case, Pièce donnée)
+    possible_actions: List[Tuple[int, Piece]] = [
+        (pos, piece) for pos in empty_positions for piece in available
+    ]
+
+    # 2. Sécurisation : filtrer les pièces qui font gagner l'adversaire au coup 2
+    safe_actions: List[Tuple[int, Piece]] = []
+    
+    for pos, given_piece in possible_actions:
+        board_1 = apply_move(board, piece_to_place, pos)
+        avail_1 = [p for p in available if p != given_piece]
+        rem_positions_1 = [i for i in empty_positions if i != pos]
+
+        # L'adversaire peut-il gagner immédiatement avec la pièce qu'on lui donne ?
+        opp_can_win = False
+        for opp_pos in rem_positions_1:
+            board_opp = apply_move(board_1, given_piece, opp_pos)
+            if is_winning_board(board_opp):
+                opp_can_win = True
+                break
+
+        if not opp_can_win:
+            safe_actions.append((pos, given_piece))
+
+    # Si tous les coups donnent la victoire à l'adversaire, on prend un coup au hasard pour survivre
+    valid_actions = safe_actions if safe_actions else possible_actions
+
     if level == "MOYEN":
-        safe_moves: List[Tuple[Piece, int]] = []
-        for piece, pos in moves:
-            new_board = apply_move(board, piece, pos)
-            new_available = [p for p in available if p != piece]
-            if find_winning_move(new_board, new_available) is None:
-                safe_moves.append((piece, pos))
+        return random.choice(valid_actions)
 
-        if safe_moves:
-            return random.choice(safe_moves)
-        return random.choice(moves)
+    # 3. Niveau EXPERT / DIFFICILE : Recherche de la victoire au 3ème placement
+    best_score = -float('inf')
+    best_actions: List[Tuple[int, Piece]] = []
 
-    # 3. Niveau DIFFICILE (2 tours de profondeur / Minimax à 2 coups)
-    if level == "DIFFICILE":
-        best_moves: List[Tuple[Piece, int]] = []
-        best_score = -float('inf')
+    for pos, given_piece in valid_actions:
+        board_1 = apply_move(board, piece_to_place, pos)
+        avail_1 = [p for p in available if p != given_piece]
+        rem_positions_1 = [i for i in empty_positions if i != pos]
 
-        for piece, pos in moves:
-            # Tour 1 : Simulation du coup de l'IA
-            board_1 = apply_move(board, piece, pos)
-            avail_1 = [p for p in available if p != piece]
+        # Évaluation sur le Tour 2 (Adversaire) -> Tour 3 (IA)
+        # On cherche à maximiser le nombre de réponses défavorables pour l'adversaire
+        wins_at_round_3 = 0
+        total_opp_responses = 0
 
-            # Tour 2 : Analyse des réponses possibles de l'adversaire
-            opp_winning_move = find_winning_move(board_1, avail_1)
-            
-            if opp_winning_move is not None:
-                # Si l'adversaire peut gagner au tour suivant, coup très défavorable
-                score = -100
-            else:
-                # Évaluation de la sécurité : combien de répliques sûres l'adversaire aurait-il ?
-                # Plus le coup restreint les options de l'adversaire, meilleur est le score.
-                opp_moves = get_all_possible_moves(board_1, avail_1)
-                safe_opp_moves_count = 0
-                
-                for opp_piece, opp_pos in opp_moves:
-                    board_2 = apply_move(board_1, opp_piece, opp_pos)
-                    avail_2 = [p for p in avail_1 if p != opp_piece]
-                    
-                    # Si la réplique de l'adversaire ne nous donne pas de victoire au tour d'après
-                    if find_winning_move(board_2, avail_2) is None:
-                        safe_opp_moves_count += 1
+        for opp_pos in rem_positions_1:
+            board_2 = apply_move(board_1, given_piece, opp_pos)
+            rem_positions_2 = [i for i in rem_positions_1 if i != opp_pos]
 
-                # Un score plus élevé signifie que l'adversaire a moins de contre-attaques faciles
-                score = -safe_opp_moves_count
+            for opp_given_piece in avail_1:
+                total_opp_responses += 1
+                avail_2 = [p for p in avail_1 if p != opp_given_piece]
 
-            # Sélection des meilleurs coups selon le score évalué
-            if score > best_score:
-                best_score = score
-                best_moves = [(piece, pos)]
-            elif score == best_score:
-                best_moves.append((piece, pos))
+                # Tour 3 : L'IA place la pièce reçue `opp_given_piece`
+                can_win_round_3 = False
+                for my_pos_r3 in rem_positions_2:
+                    board_3 = apply_move(board_2, opp_given_piece, my_pos_r3)
+                    if is_winning_board(board_3):
+                        can_win_round_3 = True
+                        break
 
-        if best_moves:
-            return random.choice(best_moves)
+                if can_win_round_3:
+                    wins_at_round_3 += 1
 
-    return random.choice(moves)
+        # Score : plus la proportion d'opportunités de gagner au Tour 3 est élevée, meilleur est le coup
+        score = (wins_at_round_3 / total_opp_responses) if total_opp_responses > 0 else 0
+
+        if score > best_score:
+            best_score = score
+            best_actions = [(pos, given_piece)]
+        elif score == best_score:
+            best_actions.append((pos, given_piece))
+
+    return random.choice(best_actions)
 
 
 def play_game(mode: str, level: Optional[str] = None) -> None:
