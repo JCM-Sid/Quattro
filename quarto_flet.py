@@ -203,7 +203,7 @@ class QuartoApp:
             ),
             ft.Container(height=10),
             ft.ElevatedButton(
-                "DIFFICILE",
+                "EXPERT - CHLOE",
                 on_click=lambda _: self._start_game("solo", "DIFFICILE"),
                 bgcolor="#F44336",
                 color="white",

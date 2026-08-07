@@ -4,25 +4,27 @@
 
 - **Product name:** Quattro (local Quarto board game)
 - **Domain:** Two-player abstract strategy game with optional solo mode vs. computer
-- **Stack:** Python 3, standard library only (no external dependencies)
+- **Stack:** Python 3, + Flet 
 - **Language:** French UI labels and CLI feedback; code comments and identifiers in English
 
 ## File map
 
 | File | Role |
 |------|------|
-| `quarto.py` | main script: 2 players or solo mode + 3 computer levels (DEBUTANT, MOYEN, DIFFICILE) |
-| `run_quattro.sh` | Launcher entry-point (`python3 quarto.py`) |
+| `quarto_flet.py` | main script: 2 players or solo mode + 3 computer levels (DEBUTANT, MOYEN, DIFFICILE) |
+| `python quarto_flet.py --port 8080` | Launcher entry-point  |
 | `tests/test_quarto.py` | Unit tests for core game logic (piece set, win detection, move application) |
 | `playbook.yaml` | ai-coding-playbook local config |
-| `./ai-coding-playbook/scripts/generate_rules.py` | Derived-rule generator (Cursor / Claude / Kimi) |
+| `../Shared/generate_rules.py` | Derived-rule generator (Cursor / Claude / Kimi => ../Shared/ai-coding-playbook) |
 
 ## CLI
 
 ```bash
 # Run the game (two players or solo)
-./run_quattro.sh
-python3 quarto.py
+source .env/bin/activte
+python quarto_flet.py --port 8080
+#ou
+quarto.apps.ddcm.fr 
 
 # Run tests
 python3 -m unittest -q

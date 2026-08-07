@@ -4,3 +4,4 @@ scripts/kimi-bootstrap.py
 scripts/kimi-simple.py
 scripts/setup-kimi.sh
 .kimi/agents/project-overlay.md
+ai-coding-playbook

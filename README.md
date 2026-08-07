@@ -55,6 +55,9 @@ Puis ouvrez `http://localhost:8080`.
 - Configurez nginx en reverse proxy avec support WebSocket (`proxy_http_version 1.1`, `Upgrade` et `Connection` headers).
 - Utilisez pm2 pour garder le processus Python actif.
 
+Puis ouvrez `https://quarto.apps.ddcm.fr`.
+
+
 ## Parameters (console)
 
 - `--demo`: prints a short description of the game and exits.
@@ -76,5 +79,5 @@ python3 -m unittest -q
 
 # Software engineering:
 ```
-python3 ai-coding-playbook/scripts/generate_rules.py --tool kimi --clean --config playbook.yaml --project-status in_progress
+python3 ~/Proj/Shared/scripts/generate_rules.py --tool kimi --clean --config playbook.yaml --project-status in_progress
 ```
