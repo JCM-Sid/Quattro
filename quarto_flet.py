@@ -14,7 +14,9 @@ pour la gestion du processus en production.
 from __future__ import annotations
 
 import argparse
-from typing import List, Optional
+import json
+import os
+from typing import Dict, List, Optional
 
 import flet as ft
 from flet import PageResizeEvent, run
@@ -24,11 +26,12 @@ from quarto import get_computer_move, is_winning_board, make_piece_set, Piece
 # ── Couleurs ─────────────────────────────────────────────────────────────────
 _COLOR_DARK = "#654321"
 _COLOR_LIGHT = "#DEB887"
-_COLOR_CELL_BG = "#DEF056"
+_COLOR_CELL_BG = "#F5F9F5"
 _COLOR_CELL_BORDER = "#8B4513"
-_COLOR_HIGHLIGHT_BG = "#90EE90"
+_COLOR_HIGHLIGHT_BG = "#8C8C2D"
 _COLOR_HIGHLIGHT_BORDER = "#228B22"
-_COLOR_PAGE_BG = "#FFF8DC"
+_COLOR_PAGE_BG = "#F5E4A2"
+
 
 
 # ── Helpers visuels ──────────────────────────────────────────────────────────
@@ -54,6 +57,9 @@ class QuartoApp:
 
         self.mode: Optional[str] = None
         self.computer_level: Optional[str] = "DEBUTANT"
+        self.current_user: Optional[str] = None
+        self.player2_user: Optional[str] = None
+        self.users: Dict[str, str] = self._load_users()
 
         # Tailles dynamiques
         self.cell_size = 90
@@ -64,7 +70,7 @@ class QuartoApp:
         self.pool_cols = 4
 
         self.page.on_resize = self._on_resize
-        self._show_start_screen()
+        self._show_login_screen()
 
     # ── Redimensionnement ──────────────────────────────────────────────────
 
@@ -148,6 +154,189 @@ class QuartoApp:
             on_click=lambda e: self._on_piece_click(piece),
         )
 
+    # ── Authentification ───────────────────────────────────────────────────
+
+    def _load_users(self) -> Dict[str, dict]:
+        """Charge les utilisateurs et stats depuis users.json."""
+        path = os.path.join(os.path.dirname(__file__), "users.json")
+        if os.path.exists(path):
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        return {}
+
+    def _save_users(self) -> None:
+        """Persiste les utilisateurs et stats dans users.json."""
+        path = os.path.join(os.path.dirname(__file__), "users.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(self.users, f, indent=2)
+
+    def _record_game_result(self, winner: str, loser: str) -> None:
+        """Incrémente les compteurs victoire/défaite et sauvegarde."""
+        if winner in self.users:
+            self.users[winner]["wins"] = self.users[winner].get("wins", 0) + 1
+        if loser in self.users:
+            self.users[loser]["losses"] = self.users[loser].get("losses", 0) + 1
+        self._save_users()
+
+    def _build_stats_view(self) -> List[ft.Control]:
+        """Construit la liste des widgets du classement."""
+        rows: List[ft.Control] = [
+            ft.Divider(color=_COLOR_CELL_BORDER, thickness=1),
+            ft.Text(
+                "Classement",
+                size=18,
+                weight=ft.FontWeight.BOLD,
+                color=_COLOR_DARK,
+            ),
+        ]
+        for name, data in sorted(
+            self.users.items(),
+            key=lambda x: x[1].get("wins", 0),
+            reverse=True,
+        ):
+            wins = data.get("wins", 0)
+            losses = data.get("losses", 0)
+            rows.append(
+                ft.Text(
+                    f"{name:<12} : {wins} victoire(s) - {losses} défaite(s)",
+                    size=14,
+                    color=_COLOR_CELL_BORDER,
+                )
+            )
+        return rows
+
+    def _show_end_game_stats(self) -> None:
+        """Affiche le classement à la fin d'une partie."""
+        self.stats_container.controls = self._build_stats_view()
+        self.stats_container.visible = True
+
+    def _show_login_screen(self) -> None:
+        self._clear()
+
+        self.username_field = ft.TextField(
+            label="Nom d'utilisateur",
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.password_field = ft.TextField(
+            label="Mot de passe",
+            password=True,
+            can_reveal_password=True,
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.login_error = ft.Text(
+            "", size=14, color="red", weight=ft.FontWeight.BOLD
+        )
+
+        self.page.add(
+            ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
+            ft.Text("Connexion", size=20, color=_COLOR_CELL_BORDER),
+            ft.Container(height=20),
+            self.username_field,
+            ft.Container(height=10),
+            self.password_field,
+            ft.Container(height=10),
+            ft.Button(
+                "Se connecter",
+                on_click=lambda _: self._on_login(),
+                bgcolor=_COLOR_CELL_BORDER,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
+            self.login_error,
+        )
+
+    def _on_login(self) -> None:
+        username = self.username_field.value.strip()
+        password = self.password_field.value.strip()
+
+        user = self.users.get(username)
+        if user and user.get("password") == password:
+            self.current_user = username
+            self._show_start_screen()
+        else:
+            self.login_error.value = "Nom d'utilisateur ou mot de passe incorrect."
+            self.page.update()
+
+    def _logout(self) -> None:
+        self.current_user = None
+        self.player2_user = None
+        self._show_login_screen()
+
+    def _show_player2_login(self) -> None:
+        """Demande les identifiants du joueur 2 avant de démarrer une partie à 2."""
+        self._clear()
+
+        self.p2_username_field = ft.TextField(
+            label="Nom du joueur 2",
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.p2_password_field = ft.TextField(
+            label="Mot de passe du joueur 2",
+            password=True,
+            can_reveal_password=True,
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.p2_login_error = ft.Text(
+            "", size=14, color="red", weight=ft.FontWeight.BOLD
+        )
+
+        self.page.add(
+            ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
+            ft.Text(
+                "Connexion du joueur 2", size=20, color=_COLOR_CELL_BORDER
+            ),
+            ft.Container(height=20),
+            self.p2_username_field,
+            ft.Container(height=10),
+            self.p2_password_field,
+            ft.Container(height=10),
+            ft.Button(
+                "Commencer la partie",
+                on_click=lambda _: self._on_player2_login(),
+                bgcolor=_COLOR_CELL_BORDER,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
+            ft.Button(
+                "Retour",
+                on_click=lambda _: self._show_start_screen(),
+                bgcolor="#8B4513",
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
+            self.p2_login_error,
+        )
+
+    def _on_player2_login(self) -> None:
+        username = self.p2_username_field.value.strip()
+        password = self.p2_password_field.value.strip()
+
+        if not username:
+            self.p2_login_error.value = "Veuillez saisir un nom d'utilisateur."
+            self.page.update()
+            return
+
+        if username == self.current_user:
+            self.p2_login_error.value = "Le joueur 2 doit être différent du joueur 1."
+            self.page.update()
+            return
+
+        user = self.users.get(username)
+        if not user or user.get("password") != password:
+            self.p2_login_error.value = "Nom d'utilisateur ou mot de passe incorrect."
+            self.page.update()
+            return
+
+        self.player2_user = username
+        self._start_game("2players", None)
+
     # ── Navigation écrans ──────────────────────────────────────────────────
 
     def _clear(self) -> None:
@@ -155,9 +344,17 @@ class QuartoApp:
         self.page.update()
 
     def _show_start_screen(self) -> None:
+        self.player2_user = None
         self._clear()
         self.page.add(
             ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
+            ft.Text(
+                f"Bienvenue, {self.current_user} !",
+                size=16,
+                color=_COLOR_CELL_BORDER,
+                weight=ft.FontWeight.W_600,
+            ),
+            ft.Container(height=10),
             ft.Text("Choisissez votre mode de jeu", size=18, color=_COLOR_CELL_BORDER),
             ft.Container(height=20),
             ft.Button(
@@ -170,8 +367,16 @@ class QuartoApp:
             ft.Container(height=10),
             ft.Button(
                 "2 Joueurs",
-                on_click=lambda _: self._start_game("2players", None),
+                on_click=lambda _: self._show_player2_login(),
                 bgcolor=_COLOR_CELL_BORDER,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=20),
+            ft.Button(
+                "Se déconnecter",
+                on_click=lambda _: self._logout(),
+                bgcolor="#8B4513",
                 color="white",
                 width=250,
             ),
@@ -233,10 +438,7 @@ class QuartoApp:
         self.game_over = False
 
         self.status_text = ft.Text(
-            "Joueur 1 : choisissez une pièce pour le joueur 2",
-            size=20,
-            weight=ft.FontWeight.BOLD,
-            color=_COLOR_DARK,
+            "", size=20, weight=ft.FontWeight.BOLD, color=_COLOR_DARK
         )
         self.subtitle_text = ft.Text(
             "Jeu de stratégie 4×4", size=16, color=_COLOR_CELL_BORDER
@@ -288,10 +490,17 @@ class QuartoApp:
             color=_COLOR_CELL_BORDER,
             italic=True,
         )
+        self.stats_container = ft.Column(
+            self._build_stats_view(),
+            spacing=5,
+            horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            visible=False,
+        )
 
         self._clear()
         self._update_sizes()
         self._build_game_layout()
+        self._update_status()
         self._refresh()
 
     def _build_game_layout(self) -> None:
@@ -300,6 +509,8 @@ class QuartoApp:
             self.subtitle_text,
             ft.Container(height=10),
             self.status_text,
+            ft.Container(height=5),
+            self.stats_container,
             ft.Container(height=5),
             self.piece_to_place_container,
             ft.Container(height=10),
@@ -362,19 +573,28 @@ class QuartoApp:
             )
         return rows
 
+    def _player_label(self, player: int) -> str:
+        """Retourne le nom d'affichage du joueur."""
+        if player == 1:
+            return self.current_user
+        if player == 2 and self.player2_user:
+            return self.player2_user
+        return f"Joueur {player}"
+
     def _update_status(self) -> None:
         """Met à jour le texte de statut selon la phase et le mode."""
         if self.game_over:
             return
+        p = self._player_label
         if self.mode == "solo":
             if self.current_player == 1:
                 if self.piece_to_place is None:
                     self.status_text.value = (
-                        "Joueur 1 : choisissez une pièce pour l'ordinateur"
+                        f"{p(1)} : choisissez une pièce pour l'ordinateur"
                     )
                 else:
                     self.status_text.value = (
-                        "Joueur 1 : placez la pièce choisie par l'ordinateur"
+                        f"{p(1)} : placez la pièce choisie par l'ordinateur"
                     )
             else:
                 self.status_text.value = "L'ordinateur réfléchit..."
@@ -382,13 +602,13 @@ class QuartoApp:
             other = 3 - self.current_player
             if self.piece_to_place is None:
                 self.status_text.value = (
-                    f"Joueur {self.current_player} : choisissez une pièce "
-                    f"pour le joueur {other}"
+                    f"{p(self.current_player)} : choisissez une pièce "
+                    f"pour {p(other)}"
                 )
             else:
                 self.status_text.value = (
-                    f"Joueur {self.current_player} : placez la pièce "
-                    f"choisie par le joueur {other}"
+                    f"{p(self.current_player)} : placez la pièce "
+                    f"choisie par {p(other)}"
                 )
 
     def _on_piece_click(self, piece: Piece) -> None:
@@ -422,15 +642,26 @@ class QuartoApp:
             winner = (
                 "L'ordinateur"
                 if (self.mode == "solo" and self.current_player == 2)
-                else f"Joueur {self.current_player}"
+                else self._player_label(self.current_player)
             )
             self.status_text.value = f"🎉 {winner} a gagné !"
+            if self.mode == "2players":
+                winner_name = (
+                    self.current_user if self.current_player == 1 else self.player2_user
+                )
+                loser_name = (
+                    self.player2_user if self.current_player == 1 else self.current_user
+                )
+                self._record_game_result(winner_name, loser_name)
+                self._show_end_game_stats()
             self._refresh()
             return
 
         if not self.available:
             self.game_over = True
             self.status_text.value = "🤝 Match nul !"
+            if self.mode == "2players":
+                self._show_end_game_stats()
             self._refresh()
             return
 
@@ -479,7 +710,7 @@ class QuartoApp:
 
         self.current_player = 1
         self.status_text.value = (
-            "Joueur 1 : placez la pièce choisie par l'ordinateur"
+            f"{self._player_label(1)} : placez la pièce choisie par l'ordinateur"
         )
         self._refresh()
 
@@ -489,7 +720,8 @@ class QuartoApp:
         self.current_player = 1
         self.piece_to_place = None
         self.game_over = False
-        self.status_text.value = "Joueur 1 : choisissez une pièce pour le joueur 2"
+        self.stats_container.visible = False
+        self._update_status()
         self._refresh()
 
 
