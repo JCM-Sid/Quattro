@@ -1,3 +1,10 @@
+## 2026-08-08 — Réarrangement de l'interface Flet (UX)
+- **Decision:** Déplacer les boutons "Recommencer" et "Menu principal" ainsi que le rappel des règles sous le sous-titre dans `quarto_flet.py`.
+- **Context:** L'utilisateur souhaite que les contrôles de navigation et le rappel des règles soient visibles immédiatement en haut de l'écran de jeu, plutôt qu'en bas sous le pool de pièces.
+- **Consequences:**
+  - `_build_game_layout()` place désormais la `Row` des boutons et `rules_text` entre `subtitle_text` et `status_text`.
+  - Amélioration de l'accessibilité : les actions principales (recommencer, retour menu) sont visibles sans scroller.
+
 ## 2026-08-05 — Règles du Quarto corrigées (vrai Quarto)
 - **Decision:** Inverser le flow de jeu dans `quarto_flet.py` pour respecter les vraies règles du Quarto : le joueur choisit une pièce pour son adversaire, qui doit la placer, puis choisit une pièce en retour.
 - **Context:** L'ancienne implémentation faisait sélectionner ET placer une pièce par le même joueur au même tour. L'utilisateur souhaite la règle officielle où la sélection et le placement sont séparés entre les deux joueurs.

@@ -14,10 +14,9 @@ disable_rules: []
 check_command: "python -m unittest discover -s tests -v"
 
 project_blurb: |
-  ai-coding-playbook: org rules library (`rules/core/`,
-  `rules/postures/`, `rules/packs/`) and feed tool (`generate_rules.py`)
-  that writes derived data (`KIMI.md`) into consuming projects. Edit the library + `rules/manifest.yaml`,
-  then regenerate. No business data pipeline or local business package in this repository.
+  Quattro: local implementation of the Quarto board game in Python 3.
+  Modes: local 2-player, solo vs computer (3 difficulty levels), and remote multiplayer.
+  UI layers: Flet (web) and Pygame (desktop). Unit tests cover core game logic.
 
 keep_files:
   - project-overlay.mdc #?

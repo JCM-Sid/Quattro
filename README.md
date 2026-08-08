@@ -50,6 +50,8 @@ python quarto_flet.py --port 8080
 
 Puis ouvrez `http://localhost:8080`.
 
+L'écran de jeu affiche les boutons *Recommencer* et *Menu principal* ainsi qu'un rappel des règles sous le titre, au-dessus du plateau et du pool de pièces.
+
 **Pour le déploiement internet** (nginx + pm2) :
 - Flet expose un serveur web + WebSocket sur le port choisi.
 - Configurez nginx en reverse proxy avec support WebSocket (`proxy_http_version 1.1`, `Upgrade` et `Connection` headers).

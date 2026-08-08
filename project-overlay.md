@@ -11,7 +11,7 @@
 
 | File | Role |
 |------|------|
-| `quarto_flet.py` | main script: 2 players or solo mode + 3 computer levels (DEBUTANT, MOYEN, DIFFICILE) |
+| `quarto_flet.py` | Main script: Flet web UI with 2 players, solo vs AI (3 levels), and remote multiplayer. Layout updated: restart/menu buttons and rules summary moved under the game subtitle. |
 | `python quarto_flet.py --port 8080` | Launcher entry-point  |
 | `tests/test_quarto.py` | Unit tests for core game logic (piece set, win detection, move application) |
 | `playbook.yaml` | ai-coding-playbook local config |
