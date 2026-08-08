@@ -16,6 +16,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import signal
+import sys
 import urllib.parse
 import uuid
 from typing import Dict, List, Optional
@@ -27,7 +29,7 @@ from quarto import get_computer_move, is_winning_board, make_piece_set, Piece
 
 # ── État global pour les parties multijoueur ─────────────────────────────────
 GAMES: Dict[str, dict] = {}
-_SERVER_INFO = {"host": "127.0.0.1", "port": 8080}
+_SERVER_INFO = {"host": "127.0.0.1", "port": 8080, "base_url": None}
 
 # ── Couleurs ─────────────────────────────────────────────────────────────────
 _COLOR_DARK = "#654321"
@@ -188,6 +190,7 @@ class QuartoApp:
             self.users[winner]["wins"] = self.users[winner].get("wins", 0) + 1
         if loser in self.users:
             self.users[loser]["losses"] = self.users[loser].get("losses", 0) + 1
+        self.current_champion = max(self.users, key=lambda u: self.users[u].get("wins", 0))
         self._save_users()
 
     def _build_stats_view(self) -> List[ft.Control]:
@@ -436,7 +439,7 @@ class QuartoApp:
             ),
             ft.Container(height=10),
             ft.Button(
-                "EXPERT - CHLOE",
+                f"EXPERT - {self.current_champion}",
                 on_click=lambda _: self._start_game("solo", "DIFFICILE"),
                 bgcolor="#F44336",
                 color="white",
@@ -694,12 +697,16 @@ class QuartoApp:
     def _show_waiting_screen(self, game_id: str) -> None:
         """Affiche l'écran d'attente avec l'URL à partager."""
         self._clear()
-        host = (
-            "127.0.0.1"
-            if _SERVER_INFO["host"] in ("0.0.0.0", "127.0.0.1")
-            else _SERVER_INFO["host"]
-        )
-        url = f"http://{host}:{_SERVER_INFO['port']}/?game={game_id}"
+        base_url = _SERVER_INFO.get("base_url")
+        if base_url:
+            url = f"{base_url}/?game={game_id}"
+        else:
+            host = (
+                "127.0.0.1"
+                if _SERVER_INFO["host"] in ("0.0.0.0", "127.0.0.1")
+                else _SERVER_INFO["host"]
+            )
+            url = f"http://{host}:{_SERVER_INFO['port']}/?game={game_id}"
 
         self.page.add(
             ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
@@ -903,6 +910,7 @@ class QuartoApp:
                 )
                 self._record_game_result(winner_name, loser_name)
                 self._show_end_game_stats()
+                self.current_champion = max(self.users, key=lambda u: self.users[u].get("wins", 0))
             self._refresh()
             return
 
@@ -1007,9 +1015,32 @@ if __name__ == "__main__":
         default="127.0.0.1",
         help="Hôte sur lequel écouter (défaut: 127.0.0.1 pour local, utiliser 0.0.0.0 pour PM2/Production)",
     )
+    parser.add_argument(
+        "--public-url",
+        type=str,
+        default=None,
+        help="URL publique de l'application pour les liens de partage (ex: https://quarto.apps.ddcm.fr)",
+    )
     args = parser.parse_args()
     _SERVER_INFO["host"] = args.host
     _SERVER_INFO["port"] = args.port
+    if args.public_url:
+        _SERVER_INFO["base_url"] = args.public_url.rstrip("/")
+
+    def _graceful_exit(signum, frame):
+        os._exit(0)
+
+    _original_signal = signal.signal
+
+    def _patched_signal(sig, handler):
+        if sig in (signal.SIGTERM, signal.SIGINT):
+            return _original_signal(sig, _graceful_exit)
+        return _original_signal(sig, handler)
+
+    signal.signal = _patched_signal
+    _original_signal(signal.SIGTERM, _graceful_exit)
+    _original_signal(signal.SIGINT, _graceful_exit)
+
     ft.run(
         main=main,
         port=args.port,
