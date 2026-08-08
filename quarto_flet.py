@@ -68,6 +68,7 @@ class QuartoApp:
         self.current_user: Optional[str] = None
         self.player2_user: Optional[str] = None
         self.users: Dict[str, dict] = self._load_users()
+        self.current_champion = max(self.users, key=lambda u: self.users[u].get("wins", 0))
 
         # Remote game state
         self.game_id: Optional[str] = None
@@ -537,6 +538,14 @@ class QuartoApp:
         self.page.add(
             ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
             self.subtitle_text,
+            ft.Container(height=5),
+            ft.Row(
+                [self.restart_button, self.menu_button],
+                spacing=10,
+                alignment=ft.MainAxisAlignment.CENTER,
+            ),
+            ft.Container(height=5),
+            self.rules_text,
             ft.Container(height=10),
             self.status_text,
             ft.Container(height=5),
@@ -550,14 +559,6 @@ class QuartoApp:
             ft.Divider(color=_COLOR_CELL_BORDER, thickness=2),
             self.pool_label,
             self.pool_column,
-            ft.Container(height=15),
-            ft.Row(
-                [self.restart_button, self.menu_button],
-                spacing=10,
-                alignment=ft.MainAxisAlignment.CENTER,
-            ),
-            ft.Container(height=10),
-            self.rules_text,
         )
 
     def _refresh(self) -> None:
