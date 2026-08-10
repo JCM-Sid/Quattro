@@ -74,6 +74,7 @@ class QuartoApp:
         self.game_id: Optional[str] = None
         self.player_role: Optional[int] = None
         self._game_id_from_url = self._extract_game_id()
+        self._remote_game_url: Optional[str] = None
 
         # Tailles dynamiques
         self.cell_size = 90
@@ -695,6 +696,33 @@ class QuartoApp:
 
         self._show_waiting_screen(game_id)
 
+    async def _copy_remote_link(self, event) -> None:
+        """Copie le lien de la partie distante dans le presse-papiers."""
+        url = self._remote_game_url
+        try:
+            if not url:
+                raise ValueError("Aucun lien distant disponible à copier.")
+            if hasattr(self.page, "clipboard") and self.page.clipboard is not None:
+                await self.page.clipboard.set(url)
+            else:
+                raise AttributeError("Clipboard API non disponible")
+            self.page.show_dialog(
+                ft.SnackBar(
+                    ft.Text("Lien copié dans le presse-papiers."),
+                    bgcolor=_COLOR_HIGHLIGHT_BG,
+                )
+            )
+        except Exception:
+            self.page.show_dialog(
+                ft.SnackBar(
+                    ft.Text(
+                        "Impossible de copier automatiquement. Sélectionnez le lien manuellement."
+                    ),
+                    bgcolor="#B71C1C",
+                )
+            )
+        self.page.update()
+
     def _show_waiting_screen(self, game_id: str) -> None:
         """Affiche l'écran d'attente avec l'URL à partager."""
         self._clear()
@@ -708,6 +736,8 @@ class QuartoApp:
                 else _SERVER_INFO["host"]
             )
             url = f"http://{host}:{_SERVER_INFO['port']}/?game={game_id}"
+
+        self._remote_game_url = url
 
         self.page.add(
             ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
@@ -727,6 +757,14 @@ class QuartoApp:
                 color=_COLOR_DARK,
                 weight=ft.FontWeight.BOLD,
                 selectable=True,
+            ),
+            ft.Container(height=10),
+            ft.Button(
+                "Copier le lien",
+                on_click=self._copy_remote_link,
+                bgcolor="#2196F3",
+                color="white",
+                width=250,
             ),
             ft.Container(height=20),
             ft.Button(
