@@ -262,6 +262,14 @@ class QuartoApp:
                 width=250,
             ),
             ft.Container(height=10),
+            ft.Button(
+                "Créer un compte",
+                on_click=lambda _: self._show_register_screen(),
+                bgcolor=_COLOR_DARK,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
             self.login_error,
         )
 
@@ -279,6 +287,91 @@ class QuartoApp:
         else:
             self.login_error.value = "Nom d'utilisateur ou mot de passe incorrect."
             self.page.update()
+
+    def _show_register_screen(self) -> None:
+        self._clear()
+
+        self.reg_username_field = ft.TextField(
+            label="Nom d'utilisateur",
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.reg_password_field = ft.TextField(
+            label="Mot de passe",
+            password=True,
+            can_reveal_password=True,
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.reg_confirm_field = ft.TextField(
+            label="Confirmer le mot de passe",
+            password=True,
+            can_reveal_password=True,
+            width=250,
+            text_align=ft.TextAlign.CENTER,
+        )
+        self.reg_error = ft.Text(
+            "", size=14, color="red", weight=ft.FontWeight.BOLD
+        )
+
+        self.page.add(
+            ft.Text("Quarto", size=36, weight=ft.FontWeight.BOLD, color=_COLOR_DARK),
+            ft.Text("Nouveau compte", size=20, color=_COLOR_CELL_BORDER),
+            ft.Container(height=20),
+            self.reg_username_field,
+            ft.Container(height=10),
+            self.reg_password_field,
+            ft.Container(height=10),
+            self.reg_confirm_field,
+            ft.Container(height=10),
+            ft.Button(
+                "Créer le compte",
+                on_click=lambda _: self._on_register(),
+                bgcolor=_COLOR_CELL_BORDER,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
+            ft.Button(
+                "Annuler",
+                on_click=lambda _: self._show_login_screen(),
+                bgcolor=_COLOR_DARK,
+                color="white",
+                width=250,
+            ),
+            ft.Container(height=10),
+            self.reg_error,
+        )
+
+    def _on_register(self) -> None:
+        username = self.reg_username_field.value.strip()
+        password = self.reg_password_field.value.strip()
+        confirm = self.reg_confirm_field.value.strip()
+
+        if not username:
+            self.reg_error.value = "Veuillez saisir un nom d'utilisateur."
+            self.page.update()
+            return
+
+        if username in self.users:
+            self.reg_error.value = "Ce nom d'utilisateur est déjà utilisé."
+            self.page.update()
+            return
+
+        if not password:
+            self.reg_error.value = "Veuillez saisir un mot de passe."
+            self.page.update()
+            return
+
+        if password != confirm:
+            self.reg_error.value = "Les mots de passe ne correspondent pas."
+            self.page.update()
+            return
+
+        self.users[username] = {"password": password, "wins": 0, "losses": 0}
+        self._save_users()
+        self.current_user = username
+        self._show_start_screen()
 
     def _logout(self) -> None:
         self.current_user = None
@@ -363,6 +456,72 @@ class QuartoApp:
 
     def _clear(self) -> None:
         self.page.controls.clear()
+        self.page.update()
+
+    def _show_rules_dialog(self) -> None:
+        rules_content = ft.Column(
+            [
+                ft.Text("PRÉSENTATION ET PRÉPARATION", weight=ft.FontWeight.BOLD, size=14),
+                ft.Text("- Un plateau de 16 cases"),
+                ft.Text("- 16 pièces différentes ayant chacune 4 caractères (fig. 1) :"),
+                ft.Text("  claire ou foncée, ronde ou carrée, haute ou basse, pleine ou creuse."),
+                ft.Text("En début de partie, les pièces sont déposées à côté du plateau."),
+                ft.Container(height=10),
+                ft.Text("BUT DU JEU", weight=ft.FontWeight.BOLD, size=14),
+                ft.Text(
+                    "Créer sur le plateau un alignement de 4 pièces ayant au moins un caractère commun (fig. 2)."
+                ),
+                ft.Text("Cet alignement peut être horizontal, vertical ou diagonal (fig. 3)."),
+                ft.Container(height=10),
+                ft.Text("DÉROULEMENT D’UNE PARTIE", weight=ft.FontWeight.BOLD, size=14),
+                ft.Text("- Le premier joueur est tiré au sort."),
+                ft.Text("- Il choisit une des 16 pièces et la donne à son adversaire (fig. 4)."),
+                ft.Text(
+                    "- Celui-ci doit la placer sur une des cases du plateau et choisit ensuite une des 15 pièces restantes pour la donner à son adversaire."
+                ),
+                ft.Text(
+                    "- À son tour, celui-ci la place sur une case libre et ainsi de suite..."
+                ),
+                ft.Container(height=10),
+                ft.Text("GAIN DE LA PARTIE", weight=ft.FontWeight.BOLD, size=14),
+                ft.Text(
+                    "La partie est gagnée par le premier joueur qui annonce “QUARTO !” (fig. 5)."
+                ),
+                ft.Text("1. Un joueur fait “QUARTO !” et gagne la partie lorsque, en plaçant la pièce donnée :"),
+                ft.Text(
+                    "→ Il crée une ligne de 4 claires ou 4 foncées ou 4 rondes ou 4 carrées ou 4 hautes ou 4 basses ou 4 pleines ou 4 creuses."
+                ),
+                ft.Text("Plusieurs caractères peuvent se cumuler."),
+                ft.Text("→ Il n’est pas obligé d’avoir lui-même déposé les trois autres pièces."),
+                ft.Text("→ Il doit faire reconnaître sa victoire en annonçant “QUARTO !”."),
+                ft.Container(height=5),
+                ft.Text("2. Si ce joueur n’a pas vu l’alignement et donne une pièce à l’adversaire :"),
+                ft.Text(
+                    "→ Ce dernier peut “à ce moment” annoncer “QUARTO !”, et montrer l’alignement : c’est lui qui gagne la partie."
+                ),
+                ft.Container(height=5),
+                ft.Text("3. Si aucun des joueurs ne voit l’alignement durant le tour de jeu où il se crée, cet alignement perd toute sa valeur et la partie suit son cours."),
+                ft.Container(height=10),
+                ft.Text("FIN DE LA PARTIE", weight=ft.FontWeight.BOLD, size=14),
+                ft.Text("- Victoire : un joueur annonce et montre un “QUARTO !”."),
+                ft.Text("- Égalité : toutes les pièces ont été posées sans vainqueur."),
+            ],
+            scroll=ft.ScrollMode.AUTO,
+            tight=True,
+        )
+
+        dialog = ft.AlertDialog(
+            title=ft.Text("Règles du Quarto"),
+            content=rules_content,
+            actions=[ft.TextButton("Fermer", on_click=lambda e: self._close_dialog(dialog))],
+            actions_alignment=ft.MainAxisAlignment.END,
+        )
+        self.page.overlay.append(dialog)
+        dialog.open = True
+        self.page.update()
+
+    def _close_dialog(self, dialog: ft.AlertDialog) -> None:
+        dialog.open = False
         self.page.update()
 
     def _show_start_screen(self) -> None:
@@ -515,6 +674,12 @@ class QuartoApp:
             bgcolor=_COLOR_CELL_BORDER,
             color="white",
         )
+        self.rules_button = ft.Button(
+            "📖 Règles du jeu",
+            on_click=lambda _: self._show_rules_dialog(),
+            bgcolor=_COLOR_CELL_BORDER,
+            color="white",
+        )
         self.rules_text = ft.Text(
             "Règles : choisissez une pièce pour l'adversaire, qui doit la placer, "
             "puis choisit une pièce pour vous.",
@@ -541,7 +706,7 @@ class QuartoApp:
             self.subtitle_text,
             ft.Container(height=5),
             ft.Row(
-                [self.restart_button, self.menu_button],
+                [self.restart_button, self.menu_button, self.rules_button],
                 spacing=10,
                 alignment=ft.MainAxisAlignment.CENTER,
             ),

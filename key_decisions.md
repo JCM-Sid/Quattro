@@ -1,3 +1,18 @@
+## 2025-08-17 — Bouton « Règles du jeu » en pop-up
+- **Decision:** Ajouter un bouton « Règles du jeu » dans la barre d'actions du jeu, ouvrant un `ft.AlertDialog` via `page.overlay.append()`.
+- **Context:** L'utilisateur souhaite consulter les règles complètes du Quarto sans quitter la partie. La première implémentation utilisait `page.dialog`, obsolète dans la version de Flet du projet.
+- **Consequences:**
+  - Le dialogue utilise `page.overlay.append(dialog)` (compatibilité Flet moderne) avec contenu scrollable.
+  - `_close_dialog` ferme le dialogue en mettant `open = False` puis `page.update()`.
+
+## 2025-08-17 — Création de compte utilisateur dans `quarto_flet.py`
+- **Decision:** Ajouter un écran d'inscription accessible depuis l'écran de connexion, avec vérification de l'unicité du nom et confirmation du mot de passe.
+- **Context:** L'utilisateur souhaite pouvoir créer un nouveau compte sans éditer manuellement `users.json`.
+- **Consequences:**
+  - Nouvelles méthodes `_show_register_screen()` et `_on_register()`.
+  - Persistance immédiate dans `users.json` avec `wins: 0` et `losses: 0`.
+  - L'utilisateur nouvellement créé est connecté automatiquement.
+
 ## 2026-08-08 — Réarrangement de l'interface Flet (UX)
 - **Decision:** Déplacer les boutons "Recommencer" et "Menu principal" ainsi que le rappel des règles sous le sous-titre dans `quarto_flet.py`.
 - **Context:** L'utilisateur souhaite que les contrôles de navigation et le rappel des règles soient visibles immédiatement en haut de l'écran de jeu, plutôt qu'en bas sous le pool de pièces.

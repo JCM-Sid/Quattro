@@ -50,7 +50,9 @@ python quarto_flet.py --port 8080
 
 Puis ouvrez `http://localhost:8080`.
 
-L'écran de jeu affiche les boutons *Recommencer* et *Menu principal* ainsi qu'un rappel des règles sous le titre, au-dessus du plateau et du pool de pièces.
+L'écran de jeu affiche les boutons *Recommencer*, *Menu principal* et *Règles du jeu* sous le titre, au-dessus du plateau et du pool de pièces. Le bouton *Règles du jeu* ouvre une fenêtre pop-up avec les règles complètes du Quarto.
+
+Au démarrage, un écran de connexion permet de se connecter avec un compte existant ou d'en créer un nouveau (vérification de l'unicité du nom et confirmation du mot de passe). Les comptes et les statistiques sont stockés dans `users.json`.
 
 **Pour le déploiement internet** (nginx + pm2) :
 - Flet expose un serveur web + WebSocket sur le port choisi.
