@@ -88,6 +88,11 @@ class QuartoApp:
         self.page.pubsub.subscribe(self._on_pubsub_message)
         self._show_login_screen()
 
+        self.board: List[Optional[Piece]] = [None] * 16
+        self.available: List[Piece] = []
+        self.piece_to_place: Optional[Piece] = None
+        self.game_over: bool = False
+
     # ── Redimensionnement ──────────────────────────────────────────────────
 
     def _update_sizes(self) -> None:
@@ -728,6 +733,9 @@ class QuartoApp:
         )
 
     def _refresh(self) -> None:
+        if not hasattr(self, "board") or not hasattr(self, "board_column"):
+            return
+
         self.board_column.controls = self._build_board_rows()
         self.pool_column.controls = self._build_pool_rows()
         if self.piece_to_place is not None:
