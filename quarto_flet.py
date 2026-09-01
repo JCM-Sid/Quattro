@@ -469,7 +469,7 @@ class QuartoApp:
                 ft.Text("PRÉSENTATION ET PRÉPARATION", weight=ft.FontWeight.BOLD, size=14),
                 ft.Text("- Un plateau de 16 cases"),
                 ft.Text("- 16 pièces différentes ayant chacune 4 caractères (fig. 1) :"),
-                ft.Text("  claire ou foncée, ronde ou carrée, haute ou basse, pleine ou creuse."),
+                ft.Text("  claire ou foncée, ronde ou carrée, grande ou petite, pleine ou creuse."),
                 ft.Text("En début de partie, les pièces sont déposées à côté du plateau."),
                 ft.Container(height=10),
                 ft.Text("BUT DU JEU", weight=ft.FontWeight.BOLD, size=14),

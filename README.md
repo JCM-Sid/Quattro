@@ -8,35 +8,14 @@ Quarto is a two-player abstract strategy game played on a 4x4 board. Each turn, 
 
 ## How to run
 
-### Console mode
+via url:
+[https://quarto.apps.ddcm.fr/]
 
-From the project root:
-
+pm2:
 ```bash
-./run_quattro.sh
+pm2 start /home/jch_m/Proj/Quattro/.env/bin/python --name "Quattro" -- /home/jch_m/Proj/Quattro/quarto_flet.py --host 0.0.0.0 --port 8082
 ```
 
-Or with Python directly:
-
-```bash
-python3 quarto.py
-```
-
-### Graphical mode (Pygame)
-
-Requires a virtual environment with Pygame:
-
-```bash
-uv venv .env
-source .env/bin/activate
-uv pip install pygame
-python3 quarto_gui.py
-```
-
-**Controls:**
-- **Clic gauche** — sélectionner une pièce dans les disponibles, puis cliquer sur une case du plateau pour la placer.
-- **R** — redémarrer la partie.
-- **Échap / Q** — quitter.
 
 ### Web mode (Flet)
 
@@ -62,11 +41,6 @@ Au démarrage, un écran de connexion permet de se connecter avec un compte exis
 Puis ouvrez `https://quarto.apps.ddcm.fr`.
 
 
-## Parameters (console)
-
-- `--demo`: prints a short description of the game and exits.
-- `--help`: shows the available command-line options.
-
 ## Gameplay (console)
 
 - Enter a 4-digit binary piece code such as `1010`.
@@ -83,5 +57,5 @@ python3 -m unittest -q
 
 # Software engineering:
 ```
-python3 ~/Proj/Shared/scripts/generate_rules.py --tool kimi --clean --config playbook.yaml --project-status in_progress
+./project-overlay.md
 ```
