@@ -5,3 +5,4 @@ scripts/kimi-simple.py
 scripts/setup-kimi.sh
 ai-coding-playbook
 .cursor/
+.gradle/8.11.1/checksums/checksums.lock
