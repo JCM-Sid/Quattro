@@ -899,7 +899,8 @@ class QuartoApp:
     def _show_waiting_screen(self, game_id: str) -> None:
         """Affiche l'écran d'attente avec l'URL à partager."""
         self._clear()
-        base_url = _SERVER_INFO.get("base_url")
+        #base_url = _SERVER_INFO.get("base_url")
+        base_url = "https://quarto.apps.ddcm.fr"
         if base_url:
             url = f"{base_url}/?game={game_id}"
         else:
@@ -1257,5 +1258,6 @@ if __name__ == "__main__":
         main=main,
         port=args.port,
         host=args.host,
+        assets_dir="assets",
         view=ft.AppView.WEB_BROWSER  # Force Flet à ouvrir/servir le site web
     )

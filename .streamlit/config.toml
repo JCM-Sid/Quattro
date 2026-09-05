@@ -1,0 +1,4 @@
+[server]
+pingInterval = 10
+pingTimeout = 30
+enableStaticServing = true

@@ -1,0 +1,20 @@
+{
+  "name": "Mon Quarto",
+  "short_name": "Quarto",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ff4b4b",
+  "icons": [
+    {
+      "src": "icon_quarto_100x.png",
+      "sizes": "100x100",
+      "type": "image/png"
+    },
+    {
+      "src": "icon_quarto_500x.png",
+      "sizes": "500x500",
+      "type": "image/png"
+    }
+  ]
+}
